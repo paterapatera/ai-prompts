@@ -16,6 +16,41 @@ import sys
 import os
 
 
+def load_template(template_path: str) -> str:
+    """テンプレートファイルを読み込む"""
+    if not os.path.exists(template_path):
+        print(f"エラー: テンプレートファイルが見つかりません: {template_path}")
+        sys.exit(1)
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except IOError as e:
+        print(f"エラー: テンプレートファイルの読み込みに失敗しました: {e}")
+        sys.exit(1)
+
+
+def ensure_output_dir(output_file_path: str) -> None:
+    """出力先ディレクトリを作成する"""
+    output_dir = os.path.dirname(output_file_path)
+    if output_dir and not os.path.exists(output_dir):
+        try:
+            os.makedirs(output_dir)
+        except IOError as e:
+            print(f"エラー: 出力ディレクトリの作成に失敗しました: {e}")
+            sys.exit(1)
+
+
+def write_output(output_file_path: str, content: str) -> None:
+    """出力ファイルに内容を書き込む"""
+    try:
+        with open(output_file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print(f"レビューファイルを生成しました: {output_file_path}")
+    except IOError as e:
+        print(f"エラー: 出力ファイルの書き込みに失敗しました: {e}")
+        sys.exit(1)
+
+
 def main():
     """メイン処理"""
     if len(sys.argv) != 3:
@@ -25,42 +60,12 @@ def main():
     target_file_path = sys.argv[1]
     output_file_path = sys.argv[2]
 
-    # テンプレートファイルのパス
     template_path = ".claude/skills/readable-code-review/assets/review.md"
-
-    # テンプレートが存在するか確認
-    if not os.path.exists(template_path):
-        print(f"エラー: テンプレートファイルが見つかりません: {template_path}")
-        sys.exit(1)
-
-    # テンプレートを読み込む
-    try:
-        with open(template_path, 'r', encoding='utf-8') as f:
-            template_content = f.read()
-    except IOError as e:
-        print(f"エラー: テンプレートファイルの読み込みに失敗しました: {e}")
-        sys.exit(1)
-
-    # {対象ファイルパス} をターゲットファイルパスに置き換える
+    template_content = load_template(template_path)
     output_content = template_content.replace("{対象ファイルパス}", target_file_path)
 
-    # 出力先ディレクトリが存在するか確認し、なければ作成
-    output_dir = os.path.dirname(output_file_path)
-    if output_dir and not os.path.exists(output_dir):
-        try:
-            os.makedirs(output_dir)
-        except IOError as e:
-            print(f"エラー: 出力ディレクトリの作成に失敗しました: {e}")
-            sys.exit(1)
-
-    # 出力ファイルに書き出す
-    try:
-        with open(output_file_path, 'w', encoding='utf-8') as f:
-            f.write(output_content)
-        print(f"レビューファイルを生成しました: {output_file_path}")
-    except IOError as e:
-        print(f"エラー: 出力ファイルの書き込みに失敗しました: {e}")
-        sys.exit(1)
+    ensure_output_dir(output_file_path)
+    write_output(output_file_path, output_content)
 
 
 if __name__ == "__main__":
