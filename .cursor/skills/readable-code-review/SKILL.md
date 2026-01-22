@@ -1,97 +1,58 @@
 ---
 name: readable-code-review
-description: 指定されたディレクトリまたはファイル群に対してテンプレートに基づく一貫したコードレビューを自動生成し、.review/results/ に連番で出力します。初期スクリーニングや複数ファイルの迅速な品質確認に最適です。
+description: ユーザーがコードレビューを依頼したとき、またはコードの可読性・保守性・命名規則・コメントの改善提案を求めたときに使用します。指定されたファイルに対してテンプレートに基づく一貫したコードレビューを自動生成し、.review/results/ に連番で出力します。初期スクリーニングや複数ファイルの迅速な品質確認に最適です。
 ---
 
-# Readable Code Review AgentSkill
+# リーダブルコードレビュー
 
 ## 概要
 
-このスキルは、指定されたディレクトリまたはファイルリストに対して自動的にコードレビューを生成します。`.review/results/` ディレクトリに連番で構造化されたレビュー結果を出力します。
+コードの可読性、保守性、理解しやすさに焦点を当てたコードレビューを実施します。変数名、関数名、コード構造、コメント、複雑度などを評価し、改善提案を行います。テンプレートベースの標準化されたレビュー形式で、`.review/results/` ディレクトリに連番で構造化されたレビュー結果を出力します。
 
-## 機能
+## パラメータ
 
-- **.review/results/ディレクトリの初期化**: 既存の結果ディレクトリを削除して、クリーンな状態から開始
-- **複数ファイルの一括処理**: ユーザー指定のターゲットファイルを順序立てて処理
-- **連番でのレビュー生成**: 各ファイルに対して`01_*.md`, `02_*.md` のような連番形式でレビューを生成
-- **テンプレートベースの標準化**: 統一されたテンプレートを使用した一貫性のあるレビュー形式
+| パラメータ | 型     | 必須 | 説明                                                               |
+| ---------- | ------ | ---- | ------------------------------------------------------------------ |
+| filepath   | string | はい | レビュー対象のファイルパス（複数ファイルやディレクトリも指定可能） |
 
-## 使用方法
+## 手順
 
-### 基本構文
+1. **レビュータスクの作成**
+   - 事前クリーンアップ：過去に生成済みのタスクファイルを削除（存在する場合）
+     - `rm -f .cursor/skills/readable-code-review/tmp/readable-review-*.md`
+   - 連番を決定：`.cursor/skills/readable-code-review/tmp/` 内の既存の `readable-review-{数字}.md` ファイルの最大数字 + 1（存在しない場合は1）
+   - `python3 .cursor/skills/readable-code-review/scripts/generate_review.py {filepath} .cursor/skills/readable-code-review/tmp/readable-review-{連番}.md`でレビュータスクを作成
 
-```bash
-python3 scripts/generate_review.py <ファイルパス> <出力ファイルパス>
-```
+2. **レビューの実施**
+   - 生成されたレビュータスクファイルを開き、チェックリストに従ってレビューを実施
+   - 各レビュー項目について `<reviewed>false</reviewed>` を `<reviewed>true</reviewed>` に変更
+   - レビュー結果を `.cursor/skills/readable-code-review/assets/result.md` のテンプレートに基づいて生成
 
-### パラメータ
+## 使用例
 
-- `<ファイルパス>`: レビュー対象のファイルパス
-- `<出力ファイルパス>`: 出力するレビューファイルのパス
-
-### 例
-
-```bash
-# 単一ファイルのレビュー生成
-python3 scripts/generate_review.py src/main.py .review/results/01_main.md
-
-# 複数ファイルのレビュー生成
-python3 scripts/generate_review.py src/utils.py .review/results/02_utils.md
-python3 scripts/generate_review.py tests/test.py .review/results/03_test.md
-```
-
-## 出力形式
-
-レビュー結果は `.review/results/` に以下の形式で生成されます：
-
-```
-.review/results/
-├── 01_main.md
-├── 02_utils.md
-├── 03_test.md
-└── ...
-```
-
-各レビューファイルはテンプレートに基づいた構造を持ちます。
-
-## 設定
-
-設定ファイルは `assets/config-template.json` を参考に、プロジェクトルートに `review-config.json` を作成してカスタマイズできます。
-
-## 使用パターン
-
-### シンプルなワンファイルレビュー
+### 基本的な使用例（ファイルを指定してレビュー）
 
 ```bash
-# .review/results/ ディレクトリを削除
-rm -rf .review/results
-
-# 新規にディレクトリを作成
-mkdir -p .review/results
-
-# レビュー生成
-python3 .cursor/skills/readable-code-review/scripts/generate_review.py src/main.py .review/results/01_main.md
+rm -f .cursor/skills/readable-code-review/tmp/readable-review-*.md
+python3 .cursor/skills/readable-code-review/scripts/generate_review.py src/main.py .cursor/skills/readable-code-review/tmp/readable-review-1.md
 ```
 
-### 複数ファイルの一括処理
-
-シェルスクリプトなどで、複数ファイルに対して連番形式で実行します：
+### 複数ファイルの一括レビュー
 
 ```bash
 #!/bin/bash
-rm -rf .review/results
-mkdir -p .review/results
+mkdir -p .cursor/skills/readable-code-review/tmp
+rm -f .cursor/skills/readable-code-review/tmp/readable-review-*.md
 
 counter=1
-for file in src/main.py src/utils.py tests/test.py; do
-    seq=$(printf "%02d" $counter)
-    basename=$(basename "$file" | cut -d. -f1)
-    python3 .cursor/skills/readable-code-review/scripts/generate_review.py "$file" ".review/results/${seq}_${basename}.md"
-    ((counter++))
-done
+while IFS= read -r -d '' file; do
+    echo "Processing: $file"
+    if python3 .cursor/skills/readable-code-review/scripts/generate_review.py "$file" ".cursor/skills/readable-code-review/tmp/readable-review-${counter}.md"; then
+        ((counter++))
+    else
+        echo "Error: Failed to process $file" >&2
+    fi
+done < <(find src -name "*.py" -type f -print0)
+
+echo "Completed: Generated ${((counter-1))} review files"
 ```
-
-## 依存関係
-
-- Python 3.7+
-- テンプレートファイル: `.review/templates/review.md`
